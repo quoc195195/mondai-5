@@ -25,26 +25,16 @@ void lcdo8(unsigned char d)     //Ham truyen gui data
 void lcdini(void)               //LCD Initial
 {
 	P3.DDR = 0xFF;
-	wait();
-    lcdo8(3);    
-	wait();
-    lcdo8(3); 
-	wait();
-    lcdo8(3); 
-	wait();
-    lcdo8(2); 
-	wait();	
+	lcdo8(3);    
+	lcdo8(3); 
+	lcdo8(3); 
+	lcdo8(2); 
     lcdo8(2);                   
-	wait();
-    lcdo8(8);                   
-	wait();
-    lcdo8(0);      
-	wait();
-    lcdo8(0x0c);                
-	wait();
-    lcdo8(0);      
-	wait();
-    lcdo8(6);                   //index increase 1, no shift.
+	lcdo8(8);                   
+	lcdo8(0);      
+	lcdo8(0x0c);                
+	lcdo8(0);      
+	lcdo8(6);                   //index increase 1, no shift.
 	wait();
 }
 
@@ -85,8 +75,7 @@ void dsp1g(char *str)           //hien thi string
     int i = 0;                 
     while(str[i] !=0)
     {
-        lcdo4(str[i]);
-        i++;
+        lcdo4(str[i++]);
     }
 }
 void dspNumber(int number)
@@ -130,7 +119,6 @@ void dspTime(struct time t, char position)
 				lcdo4('0');
 			dspNumber(t.hour);
 		}
-		
 	}
 	else
 		dsp1g("  ");
@@ -175,7 +163,7 @@ void dspDate(struct time t, char position)
 		dsp1g("    ");
 	lcdo4('/');
 	t.year-= t.month < 3;
-	char day = (t.year + t.year/4 - t.year/100 + t.year/400 + arr[t.month-1] + t.day) % 7;
+	char day = (t.year + t.year/4 - t.year/100 + t.year/400 + arr[t.month-1] + t.date) % 7;
 	if(position != 1)
 	{
 		if(t.month < 10)
@@ -188,9 +176,9 @@ void dspDate(struct time t, char position)
 	
 	if(position != 2)
 	{
-		if(t.day < 10)
+		if(t.date < 10)
 			lcdo4('0');
-		dspNumber(t.day);		
+		dspNumber(t.date);		
 	}	
 	else
 		dsp1g("  ");

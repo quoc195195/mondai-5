@@ -22,12 +22,13 @@
 #define DISPLAY 0
 #define SETUP 1
 #define BLINK_OFF 3
+#define BLINK_ON 1
 char c0 = 0,c; 							// for timer 0
 char d0 = 0;							// for timer 1
 
 char displayMode = 0, setupMode = 0;	// 0-time 1-date
 char mode = 0;
-struct time t, t0, t_old;
+struct time t = {2018,1,1,0,0,0}, t0, t_old;
 char position = 0;
 
 void int_imia0 (void)
@@ -37,7 +38,6 @@ void int_imia0 (void)
     if(c0==40)
 	{	
 		UpdateTime(&t);
-		P5.DR.BIT.B0 = ~P5.DR.BIT.B0;	//togle led
         c0=0;
     }
 }
@@ -70,9 +70,10 @@ void timer1_Init()
 {
 	ITU1.TCR.BIT.CCLR 	= 1; 			//TCNT is cleared by GRA
 	ITU1.TCR.BIT.TPSC 	= 3;
-    ITU1.GRA        	= 10000;        //2Mhz/10000=200Hz???5ms
+    ITU1.GRA        	= 10000;        //2Mhz/10000=200Hz = 5ms duty time
 	ITU1.TIER.BIT.IMIEA	= 1;			// enable interrupt compare mode flag A
 }
+
 void DisplayDateTime(char mode)
 {
 	if(mode == TIME )
@@ -106,80 +107,83 @@ void DisplaySetup(char mode, char blink)
 			dspDate(t0,position);
 	}
 }
-void DisplayMode()
+void RunDisplayMode()
 {
-	int timePress = 0;
 	while(1)
 	{
 		DisplayDateTime(displayMode);
 		while((BUTTON_PORT.DR.BYTE&0xF0) != 0xF0)
 		{
+			unsigned int timePress = 0;
 			unsigned char temp = BUTTON_PORT.DR.BYTE&0xF0;
 			if((temp != 0xF0 - CHANGE_DISPLAY) && (temp!= 0xF0 - SETTING))
 				break;
 			else if((BUTTON_PORT.DR.BYTE & CHANGE_DISPLAY) != CHANGE_DISPLAY)
 			{
-
-				t_old = AssignTime(t);
-				c = c0;
-				timePress = 0;
-				while((BUTTON_PORT.DR.BYTE & CHANGE_DISPLAY) != CHANGE_DISPLAY)
-					if(c0==0)
-						DisplayDateTime(displayMode);
-				timePress = SubtractTime(t_old, t, c, c0);
-				lcdxy(0,11);
-				if(timePress < 500)
-					displayMode = 1 - displayMode;
+				if(IsValidPress(CHANGE_DISPLAY))
+				{
+					t_old = t;
+					c = c0;
+					while((BUTTON_PORT.DR.BYTE & CHANGE_DISPLAY) != CHANGE_DISPLAY)
+						if(c0==0)
+							DisplayDateTime(displayMode);
+					timePress = SubtractTime(t_old, t, c, c0);
+					if(timePress < 500)
+						displayMode = 1 - displayMode;
+				}
 			}
-			
 			else
 			{
-				t_old = AssignTime(t);
-				c = c0;
-				timePress = 0;
-				while((BUTTON_PORT.DR.BYTE & SETTING) != SETTING)
-					if(c0==0)
-						DisplayDateTime(displayMode);
-				timePress = SubtractTime(t_old, t, c, c0);
-				if(timePress < 2000)
+				if(IsValidPress(SETTING))
 				{
-					mode = SETUP;
-					setupMode = displayMode;
-					t0 = AssignTime(t);	
-					return;
+					t_old = t;
+					c = c0;
+					while((BUTTON_PORT.DR.BYTE & SETTING) != SETTING)
+						if(c0==0)
+							DisplayDateTime(displayMode);
+					timePress = SubtractTime(t_old, t, c, c0);
+					if(timePress < 2000)
+					{
+						mode = SETUP;
+						setupMode = displayMode;
+						t0 = t;
+						return;
+					}	
 				}
 			}
 		}
 	}
 	
 }
-void SetupMode()
+void RunSetupMode()
 {
-	unsigned int timePress = 0;
 	position = 0;
 	while(1)
 	{
-		DisplaySetup(setupMode, 0);
+		DisplaySetup(setupMode, BLINK_ON);
 
 		// if cancel button was pressed
 		while((BUTTON_PORT.DR.BYTE & 0xF0)!= 0xF0)
 		{
+			unsigned int timePress = 0;
 			unsigned char temp = BUTTON_PORT.DR.BYTE & 0xF0;
 			if((temp != 0xF0 - CHANGE_DISPLAY) && (temp != 0xF0 - SETTING) && (temp != 0xF0 - UP) && (temp != 0xF0 - DOWN))
 				break;
 			else if((BUTTON_PORT.DR.BYTE & CHANGE_DISPLAY) != CHANGE_DISPLAY)
 			{
-				while((BUTTON_PORT.DR.BYTE & CHANGE_DISPLAY) != CHANGE_DISPLAY);
-				mode = DISPLAY; // Display time mode
-				return;
+				if(IsValidPress(CHANGE_DISPLAY))
+				{
+					while((BUTTON_PORT.DR.BYTE & CHANGE_DISPLAY) != CHANGE_DISPLAY);
+					mode = DISPLAY; // Display time mode
+					return;
+				}
 			}
 			// if setup button was pressed
 			
 			else if((BUTTON_PORT.DR.BYTE & SETTING) != SETTING)
 			{
-				t_old = AssignTime(t);
+				t_old = t;
 				c = c0;
-				timePress = 0;
 				if(IsValidPress(SETTING))
 				{
 					while((BUTTON_PORT.DR.BYTE & SETTING) != SETTING);
@@ -188,8 +192,8 @@ void SetupMode()
 					{
 						position++;
 						if(position == 2 && setupMode == DATE)
-							while(t0.day > MaximumDaysOfMonth(t0.year, t0.month))
-								t0.day--;
+							while(t0.date > MaximumDaysOfMonth(t0.year, t0.month))
+								t0.date--;
 						if(position == 3)
 						{
 							mode = DISPLAY;
@@ -199,8 +203,7 @@ void SetupMode()
 								t0.minute = t.minute;
 								t0.second = t.second;
 							}
-							t = AssignTime(t0);
-							position = 0;
+							t = t0;
 							return;
 						}
 					}
@@ -210,9 +213,8 @@ void SetupMode()
 			// if UP button was pressed
 			else if((BUTTON_PORT.DR.BYTE & UP) != UP)
 			{
-				t_old = AssignTime(t);
+				t_old = t;
 				c = c0;
-				timePress = 0;
 				while((BUTTON_PORT.DR.BYTE & UP) != UP)
 				{
 					timePress = SubtractTime(t_old,t, c, c0);
@@ -225,13 +227,13 @@ void SetupMode()
 				if(timePress < 500)
 				{
 					IncreaseTime(&t0, position, setupMode);
-					DisplaySetup(setupMode, 0);
+					DisplaySetup(setupMode, BLINK_OFF);
 				}							
 			}		
 			// if DOWN button was pressed
 			else 
 			{
-				t_old = AssignTime(t);
+				t_old = t;
 				c = c0;
 				while((BUTTON_PORT.DR.BYTE & DOWN) != DOWN)
 				{
@@ -245,7 +247,7 @@ void SetupMode()
 				if(timePress < 500)
 				{
 					DecreaseTime(&t0, position, setupMode);
-					DisplaySetup(setupMode,0);
+					DisplaySetup(setupMode,BLINK_OFF);
 				}	
 			}	
 		}	
@@ -254,19 +256,12 @@ void SetupMode()
 void main()
 {
 	//Initial time
-	t.hour = 23;
-	t.minute = 59;
-	t.second = 55;
-	t.year = 2018;
-	t.month = 2;
-	t.day = 1;
 	
 	lcdini();						//LCD Initiate
 	timer0_Init();					//Timer 0 Initiate
 	timer1_Init();					//Timer 1 Initiate
 	
 	//Input Pin Configure
-	P5.DDR = 0xff;	
 	BUTTON_PORT.DDR = 0x00;
 	BUTTON_PORT.PCR.BYTE = 0xFF;
 	//Display something
@@ -274,12 +269,12 @@ void main()
 	dsp1g("VER 1 QUOC-CUONG");
 	
 	EI;  							// Enable Interrupt
-	ITU.TSTR.BIT.STR0 = 1;             //Start timer0
+	ITU.TSTR.BIT.STR0 = 1;          //Start timer0
 	while(1)
 	{
 		if(mode == DISPLAY)
-			DisplayMode();
+			RunDisplayMode();
 		else
-			SetupMode();
+			RunSetupMode();
 	}
 }

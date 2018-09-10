@@ -3,16 +3,12 @@ struct time
 {
 	int year;
 	char month;
-	char day;	
+	char date;	
 	char hour;
 	char minute;
 	char second;
-
 };
-struct time AssignTime(struct time t)
-{
-	return t;
-}
+
 char IsLeapYear(int year)
 {
 	return ((year %4 == 0 && year%100 !=0)||(year%400 == 0));
@@ -37,27 +33,22 @@ char MaximumDaysOfMonth(int year, char month)
 }
 void UpdateTime(struct time *t)
 {
-	t->second += 1;
-	if(t->second == 60)
+	if(++t->second == 60)
 	{
 		t->second = 0;
-		t->minute += 1;
-		if(t->minute == 60)
+		if(++t->minute == 60)
 		{
 			t->minute = 0;
-			t->hour+= 1;
-			if(t->hour == 24)
+			if(++t->hour == 24)
 			{
 				t->hour = 0;
-				t->day += 1;
-				if(t->day == 1+ MaximumDaysOfMonth(t->year, t->month))
+				if(++t->date == 1+ MaximumDaysOfMonth(t->year, t->month))
 				{
-					t->day = 1;
-					t->month +=1;
-					if(t->month == 13)
+					t->date = 1;
+					if(++t->month == 13)
 					{
 						t->month = 1;
-						t->year +=1;
+						t->year++;
 					}
 				}
 				
@@ -66,7 +57,7 @@ void UpdateTime(struct time *t)
 	}
 }
 
-int SubtractTime(struct time t0, struct time t1, char c0, char c1)
+int SubtractTime(struct time t0, struct time t1, char c0, char c1)// t1 - t0
 {
 	if(t1.second >= t0.second)
 		return ((t1.second - t0.second)* 1000 + (c1-c0)*25 );
@@ -94,7 +85,7 @@ void IncreaseTime(struct time *t, char position, char mode) // plus time at spec
 			t->year +=1;
 	}
 	
-	if(position == 1)		// month or minute	
+	else if(position == 1)		// month or minute	
 	{
 		if(mode == 0)	// time
 		{
@@ -113,7 +104,7 @@ void IncreaseTime(struct time *t, char position, char mode) // plus time at spec
 			
 	}
 		
-	if(position == 2)			// day or second
+	else 			// day or second
 	{
 		if(mode == 0)	// time
 		{
@@ -124,10 +115,10 @@ void IncreaseTime(struct time *t, char position, char mode) // plus time at spec
 		}
 		else			//date
 		{
-			if(t->day < MaximumDaysOfMonth(t->year, t->month))
-				t->day++;
+			if(t->date < MaximumDaysOfMonth(t->year, t->month))
+				t->date++;
 			else
-				t->day = 1;
+				t->date = 1;
 		}	
 	}			
 }
@@ -144,7 +135,7 @@ void DecreaseTime(struct time *t, char position, char mode) // subtract time at 
 			t->year -=1;
 	}
 		
-	if(position == 1)		// month or minute	
+	else if(position == 1)		// month or minute	
 	{
 		if(mode == 0)	// time
 			if(t->minute == 0)
@@ -157,7 +148,7 @@ void DecreaseTime(struct time *t, char position, char mode) // subtract time at 
 			else
 				t->month -= 1;
 	}
-	if(position == 2)					// day or second
+	else
 	{
 		if(mode == 0)	// time
 			if(t->second == 0)
@@ -166,10 +157,10 @@ void DecreaseTime(struct time *t, char position, char mode) // subtract time at 
 				t->second -= 1;
 		else 				//date
 		{
-			if(t->day > 1)
-				t->day--;
+			if(t->date > 1)
+				t->date--;
 			else
-				t->day = MaximumDaysOfMonth(t->year, t->month);
+				t->date = MaximumDaysOfMonth(t->year, t->month);
 		}		
 	}	
 }
